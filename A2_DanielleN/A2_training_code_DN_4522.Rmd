@@ -47,7 +47,7 @@ get_vocab_version(db=db, vocabulary_database_schema = "main")
 
 ## Defining a cohort
 
-We want to create a cohort of everyone with a prescription for metformin
+We want to create a cohort of everyone with a prescription for ... whichever drug has the most prevalence in the dataset
 
 ```{r, eval=FALSE }
 
