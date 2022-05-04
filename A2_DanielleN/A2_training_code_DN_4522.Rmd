@@ -81,7 +81,7 @@ age_min   <- 18
 age_max   <- 99
 obs.start <- as.Date("2010-01-01")
 obs.end   <- as.Date("2015-01-01")
-conceptID <- 1503297
+conceptID <- 1112807
 gender <- 8532
 
 
@@ -89,46 +89,18 @@ gender <- 8532
 Ntot <- person_db %>% tally() %>% pull() #2694 people
 exclusion_table <- tibble(concept = "Initial population",N = Ntot)
 
-cohort <- person_db
+cohort <- person_db %>% compute()
 # as its a small database want to pick up most data for example
 
-
-#from original population only extract females
-cohort <- person_db %>% filter(gender_concept_id==gender) %>% select(toupper(c("person_id","year_of_birth"))) %>% compute()
-
-# #put into extraction table
-# exclusion_table <- rbind(exclusion_table,c("Only Females",cohort %>% tally() %>% pull()))
-
-#extract those from 2010-2015 # doesnt work as toy dataset isnt in dates
-# in_observation  <- observation_period_db %>% filter(observation_period_end_date>obs.end) %>% filter(observation_period_start_date<obs.start) %>%
-# select(toupper(c("person_id","observation_period_end_date"))) %>% compute()
-# 
-# cohort <- cohort %>% inner_join(in_observation) %>% compute()
-# exclusion_table <- rbind(exclusion_table,c("In observation",cohort %>% tally() %>% pull()))
-
 tic()
-drug_era_cohort <- drug_era_db %>% select(toupper(c("person_id","drug_concept_id","drug_era_start_date"))) %>% inner_join(cohort %>% select(toupper("person_id"))) %>% filter(toupper("drug_concept_id") == conceptID) %>% compute()
+drug_era_cohort <- drug_era_db %>% select(PERSON_ID,DRUG_CONCEPT_ID,DRUG_ERA_START_DATE) %>% inner_join(cohort %>% select(PERSON_ID)) %>% filter(DRUG_CONCEPT_ID == conceptID) %>% compute()
 drug_era_cohort %>% tally()
 toc()
 
-drug_era_db <- 
-  
-  cohort_collected <- drug_era_db %>% collect()
-
-
 cohort <- cohort %>% inner_join(drug_era_cohort) %>% compute()
-exclusion_table <- rbind(exclusion_table,c("Vaccinated with Pfizer",cohort %>% tally() %>% pull()))
+
+exclusion_table <- rbind(exclusion_table,c("taking aspirin",cohort %>% tally() %>% pull()))
 exclusion_table
-
-
-
-cohort  <- cohort %>% inner_join(drug_era_cohort) %>% compute()
-exclusion_table <- rbind(exclusion_table,c("taking_metformin",cohort %>% tally() %>% pull()))
-exclusion_table
-
-
-
-
 
 
 ```
