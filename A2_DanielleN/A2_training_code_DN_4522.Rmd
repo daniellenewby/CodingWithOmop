@@ -9,6 +9,136 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+## Install packages
+
+```{r install_packages,  message=FALSE, warning=FALSE,echo=FALSE}
+
+rm(list = ls()) # clear environment
+
+library(here)
+library(readr)
+library(DBI)
+library(RSQLite)
+library(dplyr)
+library(stringr)
+library(DT)
+library(kableExtra)
+library(CodelistGenerator)
+library(Eunomia)
+library(dbplyr)
+library(tictoc)
+
+```
+
+## Upload data
+
+Using the Eunomia dataset from OHDSI (https://github.com/OHDSI/Eunomia)
+```{r download_eunomia,  message=FALSE, warning=FALSE,echo=FALSE}
+
+#upload Eunomia
+untar(xzfile(system.file("sqlite", "cdm.tar.xz", package = "Eunomia"), open = "rb"), exdir =  tempdir())
+
+db <- DBI::dbConnect(RSQLite::SQLite(), paste0(tempdir(),"\\cdm.sqlite"))
+
+#check version
+get_vocab_version(db=db, vocabulary_database_schema = "main")
+
+```
+
+## Defining a cohort
+
+We want to create a cohort of everyone with a prescription for metformin
+
+```{r, eval=FALSE }
+
+#Set up the basics
+targetDialect              <- "postgresql" 
+cdm_database_schema        <- "main"
+vocabulary_database_schema <- "main"
+results_database_schema    <- "results"
+
+#create links to all the database tables
+person_db <- tbl(db, sql(paste0("SELECT * FROM ",cdm_database_schema,".person")))
+observation_period_db <- tbl(db, sql(paste0("SELECT * FROM ",cdm_database_schema,".observation_period")))
+visit_occurrence_db <- tbl(db, sql(paste0("SELECT * FROM ",cdm_database_schema,".visit_occurrence")))
+condition_occurrence_db <- tbl(db, sql(paste0("SELECT * FROM ",cdm_database_schema,".condition_occurrence")))
+measurement_db <- tbl(db, sql(paste0("SELECT * FROM ",cdm_database_schema,".measurement")))
+observation_db <- tbl(db, sql(paste0("SELECT * FROM ",cdm_database_schema,".observation")))
+drug_era_db <- tbl(db, sql(paste0("SELECT * FROM ",cdm_database_schema,".drug_era")))
+drug_exposure_db <- tbl(db, sql(paste0("SELECT * FROM ",cdm_database_schema,".drug_exposure")))
+concept_db <- tbl(db, sql(paste0("SELECT * FROM ",vocabulary_database_schema,".concept")))
+concept_ancestor_db <- tbl(db, sql(paste0("SELECT * FROM ",vocabulary_database_schema,".concept_ancestor")))
+death_db <- tbl(db, sql(paste0("SELECT * FROM ",cdm_database_schema,".death")))
+care_site_db <- tbl(db, sql(paste0("SELECT * FROM ",cdm_database_schema,".CARE_SITE")))
+location_db <- tbl(db, sql(paste0("SELECT * FROM ",cdm_database_schema,".LOCATION")))
+
+older80 <- person_db %>% filter(year_of_birth<=1942) %>% select(toupper(c("person_id","year_of_birth")))
+
+
+
+# create a population of females with asthma between 2010-15
+
+# Parameters
+
+age_min   <- 
+age_max   <- 
+obs.start <- as.Date("2010-01-01")
+obs.end   <- as.Date("2015-01-01")
+conceptID <- 1503297
+gender <- 8532
+
+
+#create a table showing how final population is determined from the initial population
+Ntot <- person_db %>% tally() %>% pull() #2694 people
+exclusion_table <- tibble(concept = "Initial population",N = Ntot)
+
+cohort <- person_db
+
+
+# as its a small database want to pick up most data for example
+
+
+
+#from original population only extract females
+cohort <- person_db %>% filter(gender_concept_id==gender) %>% select(toupper(c("person_id","year_of_birth"))) %>% compute()
+# #put into extraction table
+# exclusion_table <- rbind(exclusion_table,c("Only Females",cohort %>% tally() %>% pull()))
+
+#extract those from 2010-2015 # doesnt work as toy dataset isnt in dates
+# in_observation  <- observation_period_db %>% filter(observation_period_end_date>obs.end) %>% filter(observation_period_start_date<obs.start) %>%
+# select(toupper(c("person_id","observation_period_end_date"))) %>% compute()
+# 
+# cohort <- cohort %>% inner_join(in_observation) %>% compute()
+# exclusion_table <- rbind(exclusion_table,c("In observation",cohort %>% tally() %>% pull()))
+
+tic()
+drug_era_cohort <- drug_era_db %>% select(toupper(c("person_id","drug_concept_id","drug_era_start_date"))) %>% inner_join(cohort %>% select(toupper("person_id"))) %>% filter(toupper("drug_concept_id") == conceptID) %>% compute()
+drug_era_cohort %>% tally()
+toc()
+
+drug_era_db <- 
+  
+  cohort_collected <- drug_era_db %>% collect()
+
+
+cohort <- cohort %>% inner_join(drug_era_cohort) %>% compute()
+exclusion_table <- rbind(exclusion_table,c("Vaccinated with Pfizer",cohort %>% tally() %>% pull()))
+exclusion_table
+
+
+
+cohort  <- cohort %>% inner_join(drug_era_cohort) %>% compute()
+exclusion_table <- rbind(exclusion_table,c("taking_metformin",cohort %>% tally() %>% pull()))
+exclusion_table
+
+
+
+
+
+
+```
+
+
 ## R Markdown
 
 This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
@@ -23,8 +153,7 @@ summary(cars)
 
 You can also embed plots, for example:
 
-```{r pressure, echo=FALSE}
+```{r , echo=FALSE}
 plot(pressure)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
