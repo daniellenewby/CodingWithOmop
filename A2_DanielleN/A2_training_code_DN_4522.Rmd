@@ -55,7 +55,7 @@ We want to create a cohort of everyone with a prescription for ... whichever dru
 targetDialect              <- "postgresql" 
 cdm_database_schema        <- "main"
 vocabulary_database_schema <- "main"
-results_database_schema    <- "results"
+#results_database_schema    <- "results"
 
 #create links to all the database tables
 person_db <- tbl(db, sql(paste0("SELECT * FROM ",cdm_database_schema,".person")))
@@ -72,16 +72,13 @@ death_db <- tbl(db, sql(paste0("SELECT * FROM ",cdm_database_schema,".death")))
 care_site_db <- tbl(db, sql(paste0("SELECT * FROM ",cdm_database_schema,".CARE_SITE")))
 location_db <- tbl(db, sql(paste0("SELECT * FROM ",cdm_database_schema,".LOCATION")))
 
-older80 <- person_db %>% filter(year_of_birth<=1942) %>% select(toupper(c("person_id","year_of_birth")))
+# older80 <- person_db %>% filter(year_of_birth<=1942) %>% select(toupper(c("person_id","year_of_birth")))
 
-
-
-# create a population of females with asthma between 2010-15
 
 # Parameters
 
-age_min   <- 
-age_max   <- 
+age_min   <- 18
+age_max   <- 99
 obs.start <- as.Date("2010-01-01")
 obs.end   <- as.Date("2015-01-01")
 conceptID <- 1503297
@@ -93,14 +90,12 @@ Ntot <- person_db %>% tally() %>% pull() #2694 people
 exclusion_table <- tibble(concept = "Initial population",N = Ntot)
 
 cohort <- person_db
-
-
 # as its a small database want to pick up most data for example
-
 
 
 #from original population only extract females
 cohort <- person_db %>% filter(gender_concept_id==gender) %>% select(toupper(c("person_id","year_of_birth"))) %>% compute()
+
 # #put into extraction table
 # exclusion_table <- rbind(exclusion_table,c("Only Females",cohort %>% tally() %>% pull()))
 
